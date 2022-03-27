@@ -1,0 +1,241 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package safewatchwithbirthdate;
+
+import com.side.ofac.jswapi.SafeWatchApi;
+import com.side.ofac.jswapi.SafeWatchApiLoginRequest;
+import com.side.ofac.jswapi.SafeWatchApiLoginResponse;
+import com.side.ofac.jswapi.SafeWatchApiLogoutRequest;
+import com.side.ofac.jswapi.SafeWatchApiLogoutResponse;
+import com.side.ofac.jswapi.SafeWatchApiScanRequest;
+import com.side.ofac.jswapi.SafeWatchApiScanResponse;
+import com.side.ofac.jswapi.SafeWatchApiStartScanSessionRequest;
+import com.side.ofac.jswapi.SafeWatchApiStartScanSessionResponse;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import static java.lang.System.exit;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Scanner;
+import org.json.simple.JSONObject;
+
+public class SafewatchWithBirthDate {
+
+//------------------------------------------------Global Variables------------------------------------------------------------------    
+    public static String IP_Address = "";
+    public static String Port_Number = ""; // 8402 OR 8403
+    public static String Login_File = "";
+    public static SafeWatchApi safewatchapi = new SafeWatchApi();
+    public static SafeWatchApiLoginRequest loginRequest = new SafeWatchApiLoginRequest();
+    public static SafeWatchApiLoginResponse loginResponse = new SafeWatchApiLoginResponse();
+    public static SafeWatchApiLogoutRequest logoutRequest = new SafeWatchApiLogoutRequest();
+    public static SafeWatchApiLogoutResponse logoutResponse = new SafeWatchApiLogoutResponse();
+
+    public static JSONObject Json_Result = new JSONObject();
+    public static JSONObject Json_Login = new JSONObject();
+    public static JSONObject Json_Error = new JSONObject();
+    public static JSONObject Json_Ping = new JSONObject();
+    public static JSONObject Json_Logout = new JSONObject();
+
+    public static boolean Login = false;
+
+//-------------------------------------------------Functions-----------------------------------------------------------------------   
+    //Ping To Server 
+    public String sendPingRequest(String ipAddress)
+            throws UnknownHostException, IOException {
+
+        InetAddress geek = InetAddress.getByName(ipAddress);
+        // System.out.println("Sending Ping Request to " + ipAddress);
+        if (geek.isReachable(5000)) {
+            return ("Host is reachable");
+        } else {
+            return ("Sorry ! We can't reach to this host");
+        }
+    }
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    //Login 
+    public static void Log_In(String args[]) throws Exception {
+
+        //loginRequest.setConnectionTimeout(0);
+        //loginRequest.setReadTimeout(50000);
+        if (args[0] != null) {
+            loginRequest.setServerIp(args[0]);
+        }
+        if (args[1] != null) {
+            loginRequest.setServerPort(Integer.parseInt(args[1]));
+        }
+        if (args[2] != null) {
+            loginRequest.setLoginFile(args[2]);
+        }
+
+        if (safewatchapi.Login(loginRequest, loginResponse) != 0) {
+
+            //System.err.println("A problem has occured while log in on en.SafeWatch Server:\n" + test.getLastErrorText() + " code : " + test.getLastErrorCode());
+            //Json_Error.put("Login_Error","A problem has occured while log in on en.SafeWatch Server:\n" + test.getLastErrorText() + " code : " + test.getLastErrorCode());
+            //System.err.println(Json_Error);  
+            throw new Exception("A problem has occured while log in on en.SafeWatch Server:\n" + safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+            //return
+        }
+
+        //System.out.println("Login successfull");
+        Json_Login.put("Login", "Success");
+        Login = true;
+    }
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    public static void Scan(String name) throws Exception {
+
+        SafeWatchApiScanRequest ScanRequest = new SafeWatchApiScanRequest();
+        SafeWatchApiScanResponse ScanResponse = new SafeWatchApiScanResponse();
+
+        ScanRequest.setFormat("TEXT");
+        ScanRequest.setData(name);
+
+        ScanRequest.setContext("<test>true</test>");
+        ScanRequest.setListSetId("1");
+
+        if (safewatchapi.Scan(ScanRequest, ScanResponse) != 0) {
+
+            throw new Exception("A problem has occured while scanning on en.SafeWatch Server " + safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+
+        }
+
+        if (ScanResponse.getViolationCount() >= 75) {
+            Json_Result.put("Response", "Violation");
+            Json_Result.put("Detection_ID", ScanResponse.getDetectionId());
+        } else {
+            Json_Result.put("Response", "Accept");
+            Json_Result.put("Detection_ID", ScanResponse.getDetectionId());
+        }
+
+        Json_Result.put("Violation Count", ScanResponse.getViolationCount());
+
+        System.out.println(Json_Result);
+
+    }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    public static void ScanBDate(String name) throws Exception {
+
+        SafeWatchApiScanRequest ScanRequest = new SafeWatchApiScanRequest();
+        SafeWatchApiScanResponse ScanResponse = new SafeWatchApiScanResponse();
+        SafeWatchApiStartScanSessionRequest sessionRequest = new SafeWatchApiStartScanSessionRequest();
+        SafeWatchApiStartScanSessionResponse sessionResponse = new SafeWatchApiStartScanSessionResponse();
+
+        sessionRequest.setFormatName("customer");
+
+        if (safewatchapi.StartScanSession(sessionRequest, sessionResponse) != 0) {
+            throw new Exception("A problem has occured while scanning on en.SafeWatch Server " + safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+
+        }
+        ScanRequest.setFormat("TEXT");
+        ScanRequest.setData(name);
+
+        ScanRequest.setContext("<test>true</test>");
+        ScanRequest.setListSetId("1");
+
+        if (safewatchapi.Scan(ScanRequest, ScanResponse) != 0) {
+
+            throw new Exception("A problem has occured while scanning on en.SafeWatch Server " + safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+
+        }
+
+        if (ScanResponse.getViolationCount() >= 75) {
+            Json_Result.put("Response", "Violation");
+            Json_Result.put("Detection_ID", ScanResponse.getDetectionId());
+        } else {
+            Json_Result.put("Response", "Accept");
+            Json_Result.put("Detection_ID", ScanResponse.getDetectionId());
+        }
+
+        Json_Result.put("Violation Count", ScanResponse.getViolationCount());
+
+        System.out.println(Json_Result);
+
+    }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //Logout
+    public static void Log_Out() {
+
+        if (safewatchapi.Logout(logoutRequest, logoutResponse) != 0) {
+            //System.out.println("logout refused by en.SafeWatch server : result : " + test.getLastErrorText() + " code : " + test.getLastErrorCode());
+            Json_Result.put("Logout", safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+            Json_Logout.put("Logout", safewatchapi.getLastErrorText() + " code : " + safewatchapi.getLastErrorCode());
+        
+        } else {
+            //System.out.println("logout successfull ");
+            Json_Result.put("Logout", "Success");
+            Json_Logout.put("Logout", "Success");
+
+        }
+    }
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//------------------------------------------------------Main----------------------------------------------------------------------
+    public static void main(String[] args) throws FileNotFoundException, IOException, InterruptedException, Exception {
+
+        String loginargs = "";
+        SafewatchWithBirthDate demo = new SafewatchWithBirthDate();
+
+        String[] Login_Array = new String[3];
+        IP_Address = args[0];
+        Port_Number = args[1];
+        Login_File = args[2];
+
+        Login_Array[0] = IP_Address;
+        Login_Array[1] = Port_Number;
+        Login_Array[2] = Login_File;
+
+        loginargs = args[3];
+
+        String input_name = "";
+
+        if ("".equals(loginargs)) {
+
+            Json_Error.put("Name_Input_Error", "Empty String");
+            System.err.println(Json_Error);
+
+            return;
+        } else if ("ScanBDate".equals(loginargs) || "scanbdate".equals(loginargs)) {
+
+            Log_In(Login_Array);
+ 
+            for (int i = 4; i < args.length; i++) {
+
+                if (i == args.length - 1) {
+                    input_name += args[i].toString();
+                } else {
+                    input_name += args[i].toString() + " ";
+                }
+
+            }
+
+            ScanBDate(input_name);
+            Log_Out();
+ 
+        } else if ("Scan".equals(loginargs) || "scan".equals(loginargs)) {
+
+            Log_In(Login_Array);
+ 
+            for (int i = 4; i < args.length; i++) {
+                if (i == args.length - 1) {
+                    input_name += args[i].toString();
+                } else {
+                    input_name += args[i].toString() + " ";
+                }
+
+            }
+
+            Scan(input_name);
+            Log_Out();
+         }
+
+    }
+
+ //-------------------------------------------------------------------------------------------------------------------------------
+}
